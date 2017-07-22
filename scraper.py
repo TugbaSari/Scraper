@@ -37,7 +37,7 @@ amount_regex = re.compile(ur'\u20AC\s([0-9,.]+)\s')
 nrooms_regex = re.compile('(\d+)\s\w+')
 living_aream2_regex = re.compile(ur'(\d+)\sm\u00B2')
 plot_sizem2_regex = re.compile(ur'(\d+)\sm\u00B2')
-id_regex = re.compile('huis-(\d+)')
+id_regex = re.compile('(?:huis|appartement)-(\d+)')
 street_regex = re.compile('(.*?)\s*(\d+|$)')
 year_regex = re.compile('(\d{4})')
 
