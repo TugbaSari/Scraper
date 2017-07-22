@@ -120,11 +120,11 @@ def get_plot_size(detail_page):
     return 0
 
 
-def get_house_kinds(detail_page):
+def get_house_kind(detail_page):
     kinds_elements = detail_page.find_all('dt', text='Kind of house')
     if len(kinds_elements) == 1 and kinds_elements[0].findNext('dd') is not None:
-        return get_text(kinds_elements[0].findNext('dd')).split(',')
-    return []
+        return get_text(kinds_elements[0].findNext('dd'))
+    return ''
 
 
 def get_building_type(detail_page):
@@ -175,6 +175,7 @@ def get_lease_end_date(detail_page):
             return get_group_from_regex(lease_regex, ownership_text, '')
     return ''
 
+
 db = None
 
 
@@ -187,11 +188,11 @@ def init_db():
 def save_house(house_to_save):
     init_db()
     cursor = db.cursor()
-    query = 'insert into houses (house_id, name, area, street, price, rooms, living_area, plot_area, agent, type, ' \
-            'construction_year, roof_type, energy_label, ownership, lease_end_date) ' \
-            'values (%(id)s, %(name)s, %(area)s, %(street)s, %(price)s, %(rooms)s, %(living_area)s, %(plot_area)s, ' \
-            '%(agent)s, %(type)s, %(construction_year)s, %(roof_type)s, %(energy_label)s, %(ownership)s, ' \
-            '%(lease_end_date)s)'
+    query = 'insert into houses (house_id, house_type, name, area, street, price, rooms, living_area, ' \
+            'plot_area, agent, type, construction_year, roof_type, energy_label, ownership, lease_end_date) ' \
+            'values (%(id)s, %(kind)s, %(name)s, %(area)s, %(street)s, %(price)s, %(rooms)s, ' \
+            '%(living_area)s, %(plot_area)s, %(agent)s, %(type)s, %(construction_year)s, %(roof_type)s, ' \
+            '%(energy_label)s, %(ownership)s, %(lease_end_date)s)'
     cursor.execute(query, house_to_save)
     db.commit()
     cursor.close()
@@ -249,7 +250,7 @@ while True:
              'living_area': get_living_area(house),
              'plot_area': get_plot_size(house),
              'agent': get_agent(house),
-             'kind': get_house_kinds(detail),
+             'kind': get_house_kind(detail),
              'type': get_building_type(detail),
              'construction_year': get_construction_year(detail),
              'roof_type': get_type_of_roof(detail),
