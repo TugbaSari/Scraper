@@ -217,9 +217,18 @@ while True:
     page = get_url(search_url_with_page)
     all_houses = page.find_all('li', class_='search-result')
     for house in all_houses:
-        link = 'http://www.funda.nl' + house.findAll('a')[3].get('href')
+        link = ''
+        for l in house.findAll('a'):
+            if l.has_attr('data-search-result-item-anchor'):
+                link = 'http://www.funda.nl' + l.get('href')
+                break
+
+        if link == '':
+            print 'Could not detect detail link of property %s' % house
+            continue
 
         if id_regex.search(link) is None:
+            print 'Could not parse link %s' % link
             continue
 
         id_house = id_regex.search(link).group(1)
