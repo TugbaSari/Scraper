@@ -37,6 +37,7 @@ nrooms_regex = re.compile('(\d+)\s\w+')
 living_aream2_regex = re.compile(ur'(\d+)\sm\u00B2')
 plot_sizem2_regex = re.compile(ur'(\d+)\sm\u00B2')
 id_regex = re.compile('huis-(\d+)')
+street_regex = re.compile('(.*?)\s*(\d+|$)')
 
 
 def get_text(what):
@@ -51,6 +52,10 @@ def get_group_from_regex(regex, what, default_value, group_num=1):
 def get_name(detail_page):
     name_elements = detail_page.findAll('h3')
     return get_text(name_elements[0]) if len(name_elements) == 1 else ''
+
+
+def get_street(name):
+    return get_group_from_regex(street_regex, name, '')
 
 
 def get_construction_year(detail_page):
@@ -140,22 +145,59 @@ def get_agent(detail_page):
     return get_text(agent_elements[0]) if len(agent_elements) == 1 else ''
 
 
+def get_ownership(detail_page):
+    ownership_elements = detail_page.findAll('dt', text='Ownership situation')
+    if len(ownership_elements) == 1 and ownership_elements[0].findNext('dd') is not None:
+        ownership_text = get_text(ownership_elements[0].findNext('dd'))
+        if "Full" in ownership_text:
+            return "O"
+        elif "lease" in ownership_text:
+            return "L"
+        else:
+            return ownership_text
+    return ''
+
+
+def get_lease_end_date(detail_page):
+    ownership_elements = detail_page.findAll('dt', text='Ownership situation')
+    if len(ownership_elements) == 1 and ownership_elements[0].findNext('dd') is not None:
+        ownership_text = get_text(ownership_elements[0].findNext('dd'))
+        if "lease" in ownership_text:
+            lease_regex = re.compile('(\d{2}-\d{2}-\d{4})')
+            return get_group_from_regex(lease_regex, ownership_text, '')
+    return ''
+
 db = None
 
 
-def save_house(house_to_save):
+def init_db():
     global db
     if db is None:
         db = pymssql.connect(server='localhost\SQL2014', user='ts', password='test', database='funda')
+
+
+def save_house(house_to_save):
+    init_db()
     cursor = db.cursor()
-    query = 'insert into houses (house_id, name, area, price, rooms) ' \
-            'values (%(id)s, %(name)s, %(area)s, %(price)s, %(rooms)s)'
+    query = 'insert into houses (house_id, name, area, street, price, rooms, living_area, plot_area, agent, type, ' \
+            'construction_year, roof_type, energy_label, ownership, lease_end_date) ' \
+            'values (%(id)s, %(name)s, %(area)s, %(street)s, %(price)s, %(rooms)s, %(living_area)s, %(plot_area)s, ' \
+            '%(agent)s, %(type)s, %(construction_year)s, %(roof_type)s, %(energy_label)s, %(ownership)s, ' \
+            '%(lease_end_date)s)'
     cursor.execute(query, house_to_save)
     db.commit()
     cursor.close()
 
 
-houses = []
+def house_exists(funda_id):
+    init_db()
+    cursor = db.cursor()
+    query = 'select 1 from houses where house_id = %(id)s'
+    cursor.execute(query, {'id': funda_id})
+    rows = cursor.fetchall()
+    cursor.close()
+    return len(rows) == 1
+
 
 page_number = 1
 search_url = 'http://www.funda.nl/en/koop/rotterdam/+5km'
@@ -165,31 +207,40 @@ while True:
     page = get_url(search_url_with_page)
     all_houses = page.find_all('li', class_='search-result')
     for house in all_houses:
-        time.sleep(1)
         link = 'http://www.funda.nl' + house.findAll('a')[3].get('href')
-        detail = get_url(link)
+
+        if id_regex.search(link) is None:
+            continue
+
         id_house = id_regex.search(link).group(1)
 
+        if house_exists(id_house):
+            continue
+
+        time.sleep(1)
+        detail = get_url(link)
         h = {
              'id': int(id_house),
-             'name': get_name(detail),
-             'area': get_address(detail),
-             'price': get_price(detail),
-             'rooms': get_rooms(detail),
-             'living_area': get_living_area(detail),
-             'plot_area': get_plot_size(detail),
-             'agent': get_agent(detail),
+             'name': get_name(house),
+             'area': get_address(house),
+             'street': get_street(get_name(house)),
+             'price': get_price(house),
+             'rooms': get_rooms(house),
+             'living_area': get_living_area(house),
+             'plot_area': get_plot_size(house),
+             'agent': get_agent(house),
              'kind': get_house_kinds(detail),
              'type': get_building_type(detail),
-             'age': get_construction_year(detail),
+             'construction_year': get_construction_year(detail),
              'roof_type': get_type_of_roof(detail),
-             'energy_label': get_energy_label(detail)
+             'energy_label': get_energy_label(detail),
+             'ownership': get_ownership(detail),
+             'lease_end_date': get_lease_end_date(detail)
         }
 
-        houses.append(h)
         save_house(h)
 
     page_number = page_number + 1
     next_button = page.findAll('span', class_='pagination-next-label')
-    if page_number > 3:  # len(next_button) == 0:
+    if len(next_button) == 0:  # page_number > 3:  #
         break
