@@ -33,7 +33,7 @@ def get_url(url):
     return dom
 
 area_regex = re.compile('\d{4}\s[a-zA-Z]+\s([a-zA-Z\s]+)')
-amount_regex = re.compile(ur'\u20AC\s(\d+.\d+)\s\w.\w.')
+amount_regex = re.compile(ur'\u20AC\s([0-9,.]+)\s')
 nrooms_regex = re.compile('(\d+)\s\w+')
 living_aream2_regex = re.compile(ur'(\d+)\sm\u00B2')
 plot_sizem2_regex = re.compile(ur'(\d+)\sm\u00B2')
@@ -92,7 +92,7 @@ def get_price(detail_page):
     price_elements = detail_page.findAll('span', {"class": "search-result-price"})
     if len(price_elements) == 1:
         price_text = get_text(price_elements[0])
-        return int(get_group_from_regex(amount_regex, price_text, '0').replace(',', ''))
+        return int(get_group_from_regex(amount_regex, price_text, '-1').replace(',', '').replace('.', ''))
     return 0
 
 
