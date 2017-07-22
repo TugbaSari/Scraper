@@ -4,6 +4,7 @@
 import urllib2
 import re
 import time
+import sys
 from bs4 import BeautifulSoup
 import pymssql
 
@@ -38,6 +39,7 @@ living_aream2_regex = re.compile(ur'(\d+)\sm\u00B2')
 plot_sizem2_regex = re.compile(ur'(\d+)\sm\u00B2')
 id_regex = re.compile('huis-(\d+)')
 street_regex = re.compile('(.*?)\s*(\d+|$)')
+year_regex = re.compile('(\d{4})')
 
 
 def get_text(what):
@@ -59,16 +61,22 @@ def get_street(name):
 
 
 def get_construction_year(detail_page):
-    year = detail_page.find_all('dt', text='Year of construction')
-    year_range = detail_page.find_all('dt', text='Construction period')
-    if len(year) == 1:
-        return int(get_text(year[0].findNext('dd')))
-    elif len(year_range) == 1:
-        range_match = re.search(r'(\d+)-(\d+)', get_text(year_range[0].findNext('dd')))
-        if range_match is not None:
-            start_year = int(range_match.group(1))
-            end_year = int(range_match.group(2))
-            return int((start_year + end_year) / 2)
+    try:
+        year = detail_page.find_all('dt', text='Year of construction')
+        year_range = detail_page.find_all('dt', text='Construction period')
+        if len(year) == 1:
+            year_text = get_text(year[0].findNext('dd'))
+            return int(get_group_from_regex(year_regex, year_text, 0))
+        elif len(year_range) == 1:
+            range_match = re.search(r'(\d+)-(\d+)', get_text(year_range[0].findNext('dd')))
+            if range_match is not None:
+                start_year = int(range_match.group(1))
+                end_year = int(range_match.group(2))
+                return int((start_year + end_year) / 2)
+    except:
+        e = sys.exc_info()[0]
+        print 'Error while getting construction year %s' % e
+        return 0
     return 0
 
 
@@ -204,6 +212,8 @@ search_url = 'http://www.funda.nl/en/koop/rotterdam/+5km'
 
 while True:
     search_url_with_page = search_url if page_number == 1 else search_url + '/p' + str(page_number)
+
+    print 'Getting search results, page %s' % page_number
     page = get_url(search_url_with_page)
     all_houses = page.find_all('li', class_='search-result')
     for house in all_houses:
@@ -218,6 +228,7 @@ while True:
             continue
 
         time.sleep(1)
+        print 'Getting detail page for %s' % link
         detail = get_url(link)
         h = {
              'id': int(id_house),
