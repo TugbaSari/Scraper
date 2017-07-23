@@ -98,7 +98,7 @@ def get_price(detail_page):
 
 def get_rooms(detail_page):
     rooms_elements = detail_page.findAll('ul', {"class": "search-result-kenmerken"})
-    if len(rooms_elements) == 1 and rooms_elements[0].findAll('li')[1] is not None:
+    if len(rooms_elements) == 1 and len(rooms_elements[0].findAll('li')) == 2:
         room_text = get_text(rooms_elements[0].findAll('li')[1])
         return int(get_group_from_regex(nrooms_regex, room_text, '0'))
     return 0
