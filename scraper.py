@@ -209,7 +209,7 @@ def house_exists(funda_id):
 
 
 page_number = 1
-search_url = 'http://www.funda.nl/en/koop/rotterdam/+5km'
+search_url = 'http://www.funda.nl/en/koop/rotterdam/+15km'
 
 while True:
     search_url_with_page = search_url if page_number == 1 else search_url + '/p' + str(page_number)
