@@ -3,7 +3,6 @@
 
 import urllib2
 import re
-import time
 import sys
 from bs4 import BeautifulSoup
 import pymssql
@@ -27,12 +26,16 @@ def get_url(url):
               'F; D_ZUID=7E528153-E88A-3544-9805-AD734A1DA3C9; D_HID=9474DCDE-6436-3607-A62A-F4696047F32A; SNLB2=1' \
               '2-001; _ga=GA1.2.725560531.1487608774; _gid=GA1.2.722868711.1499798508'
     headers = {'User-Agent': user_agent, 'Cookie': cookies}
-    response = urllib2.urlopen(urllib2.Request(url, None, headers))
-    html = response.read()
-    dom = BeautifulSoup(html, "html.parser")
-    return dom
+    # noinspection PyBroadException
+    try:
+        response = urllib2.urlopen(urllib2.Request(url, None, headers))
+        html = response.read()
+        dom = BeautifulSoup(html, "html.parser")
+        return dom
+    except:
+        return None
 
-area_regex = re.compile('\d{4}\s[a-zA-Z]+\s([a-zA-Z\s]+)')
+area_regex = re.compile('(\d{4})\s[a-zA-Z]+\s([a-zA-Z\s]+)')
 amount_regex = re.compile(ur'\u20AC\s([0-9,.]+)\s')
 nrooms_regex = re.compile('(\d+)\s\w+')
 living_aream2_regex = re.compile(ur'(\d+)\sm\u00B2')
@@ -43,7 +46,8 @@ year_regex = re.compile('(\d{4})')
 
 
 def get_text(what):
-    return what.find(text=True).strip()
+    text = what.find(text=True)
+    return text.strip() if text is not None else ''
 
 
 def get_group_from_regex(regex, what, default_value, group_num=1):
@@ -61,6 +65,7 @@ def get_street(name):
 
 
 def get_construction_year(detail_page):
+    # noinspection PyBroadException
     try:
         year = detail_page.find_all('dt', text='Year of construction')
         year_range = detail_page.find_all('dt', text='Construction period')
@@ -81,6 +86,14 @@ def get_construction_year(detail_page):
 
 
 def get_address(detail_page):
+    address_elements = detail_page.findAll('small')
+    if len(address_elements) == 1:
+        address_text = get_text(address_elements[0])
+        return get_group_from_regex(area_regex, address_text, '', group_num=2)
+    return ''
+
+
+def get_postcode(detail_page):
     address_elements = detail_page.findAll('small')
     if len(address_elements) == 1:
         address_text = get_text(address_elements[0])
@@ -188,9 +201,9 @@ def init_db():
 def save_house(house_to_save):
     init_db()
     cursor = db.cursor()
-    query = 'insert into houses (house_id, house_type, name, area, street, price, rooms, living_area, ' \
+    query = 'insert into houses (house_id, house_type, name, area, street, postcode, price, rooms, living_area, ' \
             'plot_area, agent, type, construction_year, roof_type, energy_label, ownership, lease_end_date) ' \
-            'values (%(id)s, %(kind)s, %(name)s, %(area)s, %(street)s, %(price)s, %(rooms)s, ' \
+            'values (%(id)s, %(kind)s, %(name)s, %(area)s, %(street)s, %(postcode)s, %(price)s, %(rooms)s, ' \
             '%(living_area)s, %(plot_area)s, %(agent)s, %(type)s, %(construction_year)s, %(roof_type)s, ' \
             '%(energy_label)s, %(ownership)s, %(lease_end_date)s)'
     cursor.execute(query, house_to_save)
@@ -237,14 +250,17 @@ while True:
         if house_exists(id_house):
             continue
 
-        time.sleep(1)
         print 'Getting detail page for %s' % link
         detail = get_url(link)
+        if detail is None:
+            continue
+
         h = {
              'id': int(id_house),
              'name': get_name(house),
              'area': get_address(house),
              'street': get_street(get_name(house)),
+             'postcode': get_postcode(house),
              'price': get_price(house),
              'rooms': get_rooms(house),
              'living_area': get_living_area(house),
